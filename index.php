@@ -7,10 +7,10 @@ if(empty($_GET)) //--all
     $colorCataloging = new ColorCataloging();
     var_dump($colorCataloging->ProcessAll());
 }
-else if($_GET["media_id"] > 0)
+else if($media_id = $_GET["media_id"] > 0)
 {
     $colorCataloging = new ColorCataloging();
-    var_dump($colorCataloging->ProcessOne($_GET["media_id"]));
+    var_dump($colorCataloging->ProcessOne($media_id));
 }
 else
 {

@@ -31,7 +31,7 @@ class ColorCataloging
             foreach ($imageList->response as $image) {
                 $colorResult = new ColorCatalogingResult();
                 $colorResult->id = $image->id;
-                $colorResult->colors = $this->GetColor($image->images->thumbnail);
+                $colorResult->colors = $this->GetImageColors($image->images->thumbnail);
                 $result[] = $colorResult;
                 
             }
@@ -42,10 +42,13 @@ class ColorCataloging
         public function ProcessOne($imageId)
         {
             $image = $this->GetImagesListFromURL(sprintf($this->ID_IMG_API_URL,$imageId));
-            return $this->GetColor($image->response->images->thumbnail);
+            $colorResult = new ColorCatalogingResult();
+            $colorResult->id = $image->id;
+            $colorResult->colors = $this->GetImageColors($image->response->images->thumbnail);
+            return $colorResult;
         }
         
-        private function GetColor($imageFile)
+        private function GetImageColors($imageFile)
         {           
             $image = new Imagick();
             $image->readimage($imageFile);
@@ -53,11 +56,11 @@ class ColorCataloging
             
             if($this->delta > 2)
             {
-                $half_delta = $this->delta / 2 - 1;
+                $halfDelta = $this->delta / 2 - 1;
             }
             else
             {
-                $half_delta = 0;
+                $halfDelta = 0;
             }
             
             $imgWidth = $image->getimagewidth();
@@ -76,13 +79,13 @@ class ColorCataloging
                     if ( $this->delta > 1 )
                     {
                         
-                        $colors['r'] = min(255,intval((($colors['r'])+$half_delta)/$this->delta)*$this->delta);
-                        $colors['g'] = min(255,intval((($colors['g'])+$half_delta)/$this->delta)*$this->delta);
-                        $colors['b'] = min(255,intval((($colors['b'])+$half_delta)/$this->delta)*$this->delta);
+                        $colors['r'] = min(255,intval((($colors['r'])+$halfDelta)/$this->delta)*$this->delta);
+                        $colors['g'] = min(255,intval((($colors['g'])+$halfDelta)/$this->delta)*$this->delta);
+                        $colors['b'] = min(255,intval((($colors['b'])+$halfDelta)/$this->delta)*$this->delta);
                         
                     }
 
-                    $hex = substr("0".dechex($colors['r']),-2).substr("0".dechex($colors['g']),-2).substr("0".dechex($colors['b']),-2);
+                    $hex = $this->RGBToString($colors['r'], $colors['g'], $colors['b']);
 
                     if (!isset($hexarray[$hex]))
                     {
@@ -230,8 +233,8 @@ class ColorCataloging
 
             for (; $highest < 256; $lowest += $delta, $highest += $delta)
             {
-                $new_hex = substr("0".dechex($colors['red'] - $lowest),-2).substr("0".dechex($colors['green'] - $lowest),-2).substr("0".dechex($colors['blue'] - $lowest),-2);
-
+                $new_hex = $this->RGBToString($colors['red'] - $lowest, $colors['green'] - $lowest, $colors['blue'] - $lowest);
+                
                 if ( isset( $hexarray[$new_hex] ) )
                 {
                     // same color, different brightness - use it instead
@@ -250,7 +253,7 @@ class ColorCataloging
 
             if ($red > $delta)
             {
-                $new_hex = substr("0".dechex($red - $delta),-2).substr("0".dechex($green),-2).substr("0".dechex($blue),-2);
+                $new_hex = $this->RGBToString($red - $delta, $green, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -258,7 +261,7 @@ class ColorCataloging
             }
             if ($green > $delta)
             {
-                $new_hex = substr("0".dechex($red),-2).substr("0".dechex($green - $delta),-2).substr("0".dechex($blue),-2);
+                $new_hex = $this->RGBToString($red, $green - $delta, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -266,7 +269,7 @@ class ColorCataloging
             }
             if ($blue > $delta)
             {
-                $new_hex = substr("0".dechex($red),-2).substr("0".dechex($green),-2).substr("0".dechex($blue - $delta),-2);
+                $new_hex = $this->RGBToString($red, $green, $blue -$delta);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -275,7 +278,7 @@ class ColorCataloging
 
             if ($red < (255 - $delta))
             {
-                $new_hex = substr("0".dechex($red + $delta),-2).substr("0".dechex($green),-2).substr("0".dechex($blue),-2);
+                $new_hex = $this->RGBToString($red + $delta, $green, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -283,7 +286,7 @@ class ColorCataloging
             }
             if ($green < (255 - $delta))
             {
-                $new_hex = substr("0".dechex($red),-2).substr("0".dechex($green + $delta),-2).substr("0".dechex($blue),-2);
+                $new_hex = $this->RGBToString($red, $green + $delta, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -291,7 +294,7 @@ class ColorCataloging
             }
             if ($blue < (255 - $delta))
             {
-                $new_hex = substr("0".dechex($red),-2).substr("0".dechex($green),-2).substr("0".dechex($blue + $delta),-2);
+                $new_hex = $this->RGBToString($red, $green, $blue + $delta);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -300,4 +303,9 @@ class ColorCataloging
 
             return $hex;
 	}
+        
+        private function RGBToString($red, $green, $blue)
+        {
+            return substr("0".dechex($red),-2).substr("0".dechex($green),-2).substr("0".dechex($blue),-2);
+        }
 }
