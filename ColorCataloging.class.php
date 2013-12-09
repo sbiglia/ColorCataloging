@@ -11,7 +11,7 @@ class ColorCataloging
                 
         public $delta = 16;
         public $reduceGradient = true;
-        public $reduceBrightness = true;
+        public $reduceBrightness = false;
         public $maxColorsDettected = 20;
 
         private function GetImagesListFromURL($url)
@@ -31,6 +31,7 @@ class ColorCataloging
             foreach ($imageList->response as $image) {
                 $colorResult = new ColorCatalogingResult();
                 $colorResult->id = $image->id;
+                $colorResult->imageUrl = $image->images->thumbnail;
                 $colorResult->colors = $this->GetImageColors($image->images->thumbnail);
                 $result[] = $colorResult;
                 
@@ -43,9 +44,11 @@ class ColorCataloging
         {
             $image = $this->GetImagesListFromURL(sprintf($this->ID_IMG_API_URL,$imageId));
             $colorResult = new ColorCatalogingResult();
-            $colorResult->id = $image->id;
+            $colorResult->id = $image->response->id;
+            $colorResult->imageUrl = $image->response->images->thumbnail;
             $colorResult->colors = $this->GetImageColors($image->response->images->thumbnail);
-            return $colorResult;
+            $result[] = $colorResult;
+            return $result;
         }
         
         private function GetImageColors($imageFile)
