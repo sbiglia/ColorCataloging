@@ -9,10 +9,10 @@ class ColorCataloging
         private $ID_IMG_API_URL = "http://api.photorank.me/v1/photos/%u?api_key=f8f2fd79733705690041326b268d5b09eb6f264b9101b08a26f96fe2a89e5adc";
 
                 
-        public $delta = 16;
+        public $delta = 32;
         public $reduceGradient = true;
         public $reduceBrightness = false;
-        public $maxColorsDettected = 20;
+        public $maxColorsDettected = 15;
 
         private function GetImagesListFromURL($url)
         {            
