@@ -1,11 +1,20 @@
 <?php
 
 include_once("ColorCataloging.class.php");
+include_once("ColorCatalogingResponse.class.php");
 
+/*
+ * Writtes to the browser a quick (and uggly :P) preview of the result array.
+*/
 function QuickResultPreview($result)
 {
+    if($result->code == -1)
+    {
+        echo $result;
+        return;
+    }   
     
-    foreach($result as $image)
+    foreach($result->result as $image)
     {      
         echo '<img src="'.$image->imageUrl.'"/>';
         echo "<table border=1>";
@@ -24,20 +33,39 @@ function QuickResultPreview($result)
     
 }
 
-
-if(empty($_GET)) //--all
+$previewResult = 0;
+if(isset($_GET["preview"]))
 {
-    $colorCataloging = new ColorCataloging();
-    //var_dump($colorCataloging->ProcessAll());
-    QuickResultPreview($colorCataloging->ProcessAll());
+    $previewResult = $_GET["preview"];
 }
-else if(($media_id = $_GET["media_id"]) > 0)
+
+if(isset($_GET["media_id"]))
+{
+    $media_id = $_GET["media_id"];
+}
+
+$result = Array();
+
+if(!isset($media_id)) //--all
 {
     $colorCataloging = new ColorCataloging();
-    //var_dump($colorCataloging->ProcessOne($media_id));
-    QuickResultPreview($colorCataloging->ProcessOne($media_id));
+    $result= $colorCataloging->ProcessAll();
+}
+else if($media_id  > 0)
+{
+    $colorCataloging = new ColorCataloging();
+    $result = $colorCataloging->ProcessOne($media_id);
 }
 else
 {
     echo "Invalid request";
+    die;
+}
+
+if($previewResult == 1)
+{
+    QuickResultPreview($result);
+}else
+{
+    echo json_encode($result);
 }

@@ -2,18 +2,29 @@
 
 include_once ('ColorCatalogingResult.class.php');
 
+/*
+ * Class used to process images and obtain the most significant colors containeds on it. 
+ */
 class ColorCataloging
 {
-        
+        //Urls from where the images to process are going to be obtained.
         private $ALL_IMG_API_URL = "http://api.photorank.me/v1/photos?api_key=f8f2fd79733705690041326b268d5b09eb6f264b9101b08a26f96fe2a89e5adc";
         private $ID_IMG_API_URL = "http://api.photorank.me/v1/photos/%u?api_key=f8f2fd79733705690041326b268d5b09eb6f264b9101b08a26f96fe2a89e5adc";
-
-                
+      
         public $delta = 32;
+        
+        //Reduces colors that are close to each other.
         public $reduceGradient = true;
+        
+        //Reduces colors that are the same but varies on brightness. 
         public $reduceBrightness = false;
+        
+        //max colors returned by the ProcessAll and ProcessOne methods.
         public $maxColorsDettected = 15;
 
+        /*
+         * Returns a decoded JSON with a list of images obtained from the URL passed.
+         */
         private function GetImagesListFromURL($url)
         {            
             $json = file_get_contents($url, 0, null, null);
@@ -21,36 +32,78 @@ class ColorCataloging
             return $decodedJson;
         }
         
-        
+        /*
+         * Process all images obtained from calling the photorank API. 
+         */
         public function ProcessAll()
         {
-            $imageList = $this->GetImagesListFromURL($this->ALL_IMG_API_URL);
-            
-            $result = array();
-            
-            foreach ($imageList->response as $image) {
-                $colorResult = new ColorCatalogingResult();
-                $colorResult->id = $image->id;
-                $colorResult->imageUrl = $image->images->thumbnail;
-                $colorResult->colors = $this->GetImageColors($image->images->thumbnail);
-                $result[] = $colorResult;
+            try
+            {
+                $imageList = $this->GetImagesListFromURL($this->ALL_IMG_API_URL);
+
+                $result = array();
+
+                foreach ($imageList->response as $image) {
+                    $colorResult = new ColorCatalogingResult();
+                    $colorResult->id = $image->id;
+                    $colorResult->imageUrl = $image->images->thumbnail;
+                    $colorResult->colors = $this->GetImageColors($image->images->thumbnail);
+                    $result[] = $colorResult;
+
+                }
                 
+                return $this->ReturnValidResponse($result);
+            }
+            catch(Exception $e)
+            {
+                return $this->ReturnErrorResponse("An error ocurred processing the images: \n".$e);
             }
             
-            return $result;
         }
         
+        /*
+         * Process the image with the id passed as parameter.
+         */
         public function ProcessOne($imageId)
         {
-            $image = $this->GetImagesListFromURL(sprintf($this->ID_IMG_API_URL,$imageId));
-            $colorResult = new ColorCatalogingResult();
-            $colorResult->id = $image->response->id;
-            $colorResult->imageUrl = $image->response->images->thumbnail;
-            $colorResult->colors = $this->GetImageColors($image->response->images->thumbnail);
-            $result[] = $colorResult;
-            return $result;
+            try
+            {
+                $image = $this->GetImagesListFromURL(sprintf($this->ID_IMG_API_URL,$imageId));
+                $colorResult = new ColorCatalogingResult();
+                $colorResult->id = $image->response->id;
+                $colorResult->imageUrl = $image->response->images->thumbnail;
+                $colorResult->colors = $this->GetImageColors($image->response->images->thumbnail);
+                $result[] = $colorResult;
+                return $this->ReturnValidResponse($result);
+            }
+            catch(Exception $e)
+            {
+                return $this->ReturnErrorResponse("An error ocurred processing the image: \n".$e);
+            }
         }
         
+        /*
+         * Returns a response containing just an error message.
+         */
+        private function ReturnResponse($errorMessage)
+        {
+            $response = new ColorCatalogingResponse();
+            $response->code = -1;
+            $response->result = $errorMessage;
+            return $response;            
+        }
+        
+        private function ReturnValidResponse($result)
+        {
+            $response = new ColorCatalogingResponse();
+            $response->code = 0;
+            $response->result = $result;
+            return $response;            
+        }
+        
+        /*
+         * Process an image a returns an array with the most significant colors.
+         */        
         private function GetImageColors($imageFile)
         {           
             $image = new Imagick();
@@ -78,7 +131,8 @@ class ColorCataloging
                     $totalPixelCount++;
                     $pixelColor = $image->getimagepixelcolor($x,$y);
                     $colors = $pixelColor->getColor();
-                    // ROUND THE COLORS, TO REDUCE THE NUMBER OF DUPLICATE COLORS
+                    
+                    // round the colors, to reduce the number of duplicate colors.
                     if ( $this->delta > 1 )
                     {
                         
@@ -88,15 +142,15 @@ class ColorCataloging
                         
                     }
 
-                    $hex = $this->RGBToString($colors['r'], $colors['g'], $colors['b']);
+                    $hex = $this->RGBToHexString($colors['r'], $colors['g'], $colors['b']);
 
                     if (!isset($hexarray[$hex]))
                     {
-                            $hexarray[$hex] = 1;
+                        $hexarray[$hex] = 1;
                     }
                     else
                     {
-                            $hexarray[$hex]++;
+                        $hexarray[$hex]++;
                     }
                 }
             }
@@ -130,14 +184,16 @@ class ColorCataloging
              
         }
         
+        /*
+         * Reduces colors on an array that are close to each other.
+         */
         private function ReduceGradientsOnArray(&$colorsArray)
         {
             
-            // if you want to *eliminate* gradient variations use:
-            // ksort( &$hexarray );
             arsort( $colorsArray, SORT_NUMERIC );
 
             $gradients = array();
+            
             foreach ($colorsArray as $hex => $num)
             {
                 if ( ! isset($gradients[$hex]) )
@@ -159,6 +215,9 @@ class ColorCataloging
             
         }
         
+        /*
+         * Reduces on the array the variatons of the same color that are brighter or darker.
+         */
         private function ReduceBrightnessOnArray(&$colorsArray)
         {            
             arsort( $colorsArray, SORT_NUMERIC );
@@ -184,6 +243,9 @@ class ColorCataloging
             }            
         }
 
+        /*
+         * Reduces colors bassed on their light variation.
+         */
 	private function Normalize( $hex, $hexarray, $delta )
 	{
             $lowest = 255;
@@ -236,7 +298,7 @@ class ColorCataloging
 
             for (; $highest < 256; $lowest += $delta, $highest += $delta)
             {
-                $new_hex = $this->RGBToString($colors['red'] - $lowest, $colors['green'] - $lowest, $colors['blue'] - $lowest);
+                $new_hex = $this->RGBToHexString($colors['red'] - $lowest, $colors['green'] - $lowest, $colors['blue'] - $lowest);
                 
                 if ( isset( $hexarray[$new_hex] ) )
                 {
@@ -248,6 +310,9 @@ class ColorCataloging
             return $hex;
 	}
 
+        /*
+         * Finds colors that are close to each other.
+         */
 	private function FindAdjacentColor( $hex, $gradients, $delta )
 	{
             $red = hexdec( substr( $hex, 0, 2 ) );
@@ -256,7 +321,7 @@ class ColorCataloging
 
             if ($red > $delta)
             {
-                $new_hex = $this->RGBToString($red - $delta, $green, $blue);
+                $new_hex = $this->RGBToHexString($red - $delta, $green, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -264,7 +329,7 @@ class ColorCataloging
             }
             if ($green > $delta)
             {
-                $new_hex = $this->RGBToString($red, $green - $delta, $blue);
+                $new_hex = $this->RGBToHexString($red, $green - $delta, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -272,7 +337,7 @@ class ColorCataloging
             }
             if ($blue > $delta)
             {
-                $new_hex = $this->RGBToString($red, $green, $blue -$delta);
+                $new_hex = $this->RGBToHexString($red, $green, $blue -$delta);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -281,7 +346,7 @@ class ColorCataloging
 
             if ($red < (255 - $delta))
             {
-                $new_hex = $this->RGBToString($red + $delta, $green, $blue);
+                $new_hex = $this->RGBToHexString($red + $delta, $green, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -289,7 +354,7 @@ class ColorCataloging
             }
             if ($green < (255 - $delta))
             {
-                $new_hex = $this->RGBToString($red, $green + $delta, $blue);
+                $new_hex = $this->RGBToHexString($red, $green + $delta, $blue);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -297,7 +362,7 @@ class ColorCataloging
             }
             if ($blue < (255 - $delta))
             {
-                $new_hex = $this->RGBToString($red, $green, $blue + $delta);
+                $new_hex = $this->RGBToHexString($red, $green, $blue + $delta);
                 if ( isset($gradients[$new_hex]) )
                 {
                         return $gradients[$new_hex];
@@ -307,8 +372,11 @@ class ColorCataloging
             return $hex;
 	}
         
-        private function RGBToString($red, $green, $blue)
-        {
+        /*
+         * Converts 3 ints (R, G, B) to a Hex color string.
+         */
+        private function RGBToHexString($red, $green, $blue)
+        { 
             return substr("0".dechex($red),-2).substr("0".dechex($green),-2).substr("0".dechex($blue),-2);
         }
 }
